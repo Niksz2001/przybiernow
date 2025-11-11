@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ulica Golczewska — Przybiernów — Strona oficjalna</title>
+  <style>
+    :root{--accent:#38bdf8;--bg:#2f374a;--card:#3d4658;--text:#f1f5f9;--muted:#a0aec0;}
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0;background:var(--bg);color:var(--text);}
+    header{background:linear-gradient(90deg,#3f4c61,#2f374a);color:white;padding:28px 20px;}
+    .container{max-width:1100px;margin:0 auto;padding:20px;}
+    .logo{font-weight:700;font-size:22px;letter-spacing:0.6px}
+    nav{margin-top:10px;display:flex;gap:12px;flex-wrap:wrap}
+    a.navlink{color:var(--text);text-decoration:none;background:rgba(255,255,255,0.08);padding:8px 12px;border-radius:10px;font-weight:600;transition:background .2s;}
+    a.navlink:hover{background:rgba(255,255,255,0.18);}
+    .hero{display:grid;grid-template-columns:1fr;gap:18px;margin-top:18px}
+    .hero-card{background:var(--card);padding:20px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.25)}
+    h1{margin:0;font-size:26px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:18px;margin-top:18px}
+    .card{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.25)}
+    .muted{color:var(--muted);font-size:14px}
+    .news-item{display:flex;flex-direction:column;gap:8px}
+    .news-item img{width:100%;height:160px;object-fit:cover;border-radius:8px}
+    footer{margin-top:30px;padding:28px 0;color:var(--muted)}
+    .map{border-radius:12px;overflow:hidden;height:320px}
+    .btn{display:inline-block;padding:8px 14px;background:var(--accent);color:#000;font-weight:600;border-radius:8px;text-decoration:none;}
+    .btn:hover{background:#7dd3fc;}
+    @media(min-width:900px){ .hero{grid-template-columns:1fr 360px} }
+    #weather-clock{margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:8px;background:rgba(255,255,255,0.07);padding:12px;border-radius:10px;}
+    #clock{font-weight:600;font-size:18px;}
+    #weather-icon{font-size:42px;}
+  </style>
+  <script>
+    function getWeatherIcon(code){
+      const icons={
+        0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌦️',
+        56:'🌧️',57:'🌧️',61:'🌧️',63:'🌧️',65:'🌧️',66:'🌧️',67:'🌧️',
+        71:'🌨️',73:'🌨️',75:'🌨️',77:'❄️',80:'🌧️',81:'🌧️',82:'🌧️',
+        85:'🌨️',86:'🌨️',95:'⛈️',96:'⛈️',99:'⛈️'};
+      return icons[code]||'🌡️';
+    }
+    async function loadWeather(){
+      const lat = 53.759022106565155;
+      const lon = 14.790697711901318;
+      const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relativehumidity_2m,surface_pressure`;
+      try{
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+        const w = data.current_weather;
+        // find nearest hourly index for humidity and pressure - use index 0 as approximation
+        const humidity = data.hourly && data.hourly.relativehumidity_2m ? data.hourly.relativehumidity_2m[0] : '—';
+        const pressure = data.hourly && data.hourly.surface_pressure ? data.hourly.surface_pressure[0] : '—';
+        const icon = getWeatherIcon(w.weathercode);
+        document.getElementById("weather").innerHTML = `
+          <div id="weather-icon">${icon}</div>
+          <div><strong>${w.temperature}°C</strong> | Wiatr: ${w.windspeed} km/h</div>
+          <div>Wilgotność: ${humidity}% | Ciśnienie: ${pressure} hPa</div>
+          <div class="muted">Aktualizacja: ${new Date(w.time).toLocaleString('pl-PL')}</div>
+        `;
+      }catch(e){
+        console.error(e);
+        document.getElementById("weather").innerText = "Nie udało się załadować pogody.";
+      }
+    }
+    function updateClock(){
+      const now = new Date();
+      document.getElementById("clock").textContent = now.toLocaleTimeString("pl-PL",{hour12:false});
+    }
+    window.onload = ()=>{ loadWeather(); updateClock(); setInterval(updateClock,1000); setInterval(loadWeather,600000); };
+  </script>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="logo">Ulica Golczewska — Przybiernów</div>
+      <nav>
+        <a class="navlink" href="#aktualnosci">Aktualności</a>
+        <a class="navlink" href="#o-ulicy">O ulicy</a>
+        <a class="navlink" href="#mapa">Mapa</a>
+        <a class="navlink" href="#kontakt">Kontakt</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-card card">
+        <h1 id="hero-title">Witamy na oficjalnej stronie ulicy Golczewskiej</h1>
+        <p class="muted">Informacje i aktualności dla mieszkańców i odwiedzających Przybiernów, woj. zachodniopomorskie.</p>
+        <a class="btn" href="#aktualnosci">Zobacz aktualności</a>
+        <div id="weather-clock">
+          <div id="weather">Ładowanie pogody...</div>
+          <div id="clock">--:--:--</div>
+        </div>
+      </div>
+      <aside class="card">
+        <h3>W skrócie</h3>
+        <ul class="muted">
+          <li>Ulica łączy centrum Przybiernowa z trasą na Golczewo (DW106).</li>
+          <li>Wzdłuż drogi znajdują się domy jednorodzinne i pola uprawne.</li>
+          <li>W rejonie działa Ochotnicza Straż Pożarna i Klub Seniora.</li>
+          <li>Trwają plany modernizacji chodników i oświetlenia.</li>
+        </ul>
+      </aside>
+    </section>
+
+    <section id="aktualnosci" style="margin-top:28px">
+      <h2>Aktualności</h2>
+      <div class="grid">
+        <article class="card news-item">
+          <img alt="Przybiernów dożynki" src="https://images.unsplash.com/photo-1508672019048-805c876b67e2?auto=format&fit=crop&w=1200&q=60">
+          <div>
+            <h3>Dożynki Gminne 2025 w Przybiernowie</h3>
+            <p class="muted">7 września 2025</p>
+            <p>Na stadionie gminnym odbyły się dożynki z udziałem mieszkańców całej gminy. Wystąpiły lokalne zespoły folklorystyczne, a mieszkańcy Golczewskiej przygotowali stoisko z wypiekami.</p>
+          </div>
+        </article>
+        <article class="card news-item">
+          <img alt="Droga Golczewska remont" src="https://images.unsplash.com/photo-1581091012184-5c7a74c1e0c9?auto=format&fit=crop&w=1200&q=60">
+          <div>
+            <h3>Remont nawierzchni — etap 2 zakończony</h3>
+            <p class="muted">29 sierpnia 2025</p>
+            <p>Zakończono drugi etap modernizacji drogi Golczewskiej. Wymieniono 1,4 km asfaltu i wprowadzono nowe oznakowanie poziome. Kolejny etap planowany jest na wiosnę 2026.</p>
+          </div>
+        </article>
+        <article class="card news-item">
+          <img alt="OSP Przybiernów" src="https://images.unsplash.com/photo-1594737625785-c9f5a9d42d1b?auto=format&fit=crop&w=1200&q=60">
+          <div>
+            <h3>OSP Przybiernów z nowym sprzętem ratowniczym</h3>
+            <p class="muted">15 czerwca 2025</p>
+            <p>Jednostka OSP Przybiernów otrzymała nowoczesne wyposażenie do działań ratowniczych. Nowe węże, pompy i aparaty ochrony dróg oddechowych trafiły również do sekcji obsługującej Golczewską.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section id="o-ulicy" style="margin-top:28px">
+      <div class="grid">
+        <div class="card">
+          <h3>O ulicy Golczewskiej</h3>
+          <ul>
+            <li>Długość: około 3.6 km</li>
+            <li>Biegnie w kierunku Golczewa, stanowiąc główną oś południowo-wschodnią Przybiernowa.</li>
+            <li>Znajdują się tu punkty usługowe, gospodarstwa rolne i tereny zielone.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Ciekawostki</h3>
+          <p>- W latach 70. XX wieku Golczewska była głównym odcinkiem trasy towarowej prowadzącej do PGR Przybiernów.</p>
+          <p>- W okolicy często odbywają się rajdy rowerowe i spacery nordic walking.</p>
+          <p>- Według mieszkańców, w rejonie Golczewskiej rosną jedne z najstarszych dębów w gminie.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="mapa" style="margin-top:28px">
+      <h2>Mapa i lokalizacja</h2>
+      <div class="card map">
+        <iframe width="100%" height="100%" frameborder="0" scrolling="no" 
+          src="https://www.openstreetmap.org/export/embed.html?bbox=14.760697711901319%2C53.729022106565154%2C14.820697711901317%2C53.789022106565156&amp;layer=mapnik&amp;marker=53.759022106565155%2C14.790697711901318" 
+          style="border:0" aria-hidden="false"></iframe>
+      </div>
+      <p class="muted" style="margin-top:8px">Współrzędne GPS Przybiernów: <strong>53.759022106565155, 14.790697711901318</strong></p>
+    </section>
+
+    <section id="kontakt" style="margin-top:28px">
+      <div class="card">
+        <h3>Kontakt</h3>
+        <p>Urząd Gminy Przybiernów — ul. Cisowa 3, 72-110 Przybiernów</p>
+        <p>Telefon: 91 39 12 001</p>
+        <p>E-mail: sekretariat@przybiernow.pl</p>
+        <p class="muted">Sołtys ulicy Golczewskiej — dane kontaktowe dostępne na tablicy ogłoszeń.</p>
+      </div>
+    </section>
+
+    <footer>
+      <div class="container">
+        <p class="muted">Strona niezależna — informacje zebrane z lokalnych źródeł.</p>
+        <p class="muted">© Ulica Golczewska — Przybiernów 2025</p>
+      </div>
+    </footer>
+  </main>
+</body>
+</html>
