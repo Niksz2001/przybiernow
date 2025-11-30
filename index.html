@@ -27,10 +27,19 @@
     .btn:hover{background:#7dd3fc;}
     @media(min-width:900px){ .hero{grid-template-columns:1fr 360px} }
     #weather-clock{margin-top:18px;display:flex;flex-direction:column;align-items:center;gap:8px;background:rgba(255,255,255,0.07);padding:12px;border-radius:10px;}
-    #clock{font-weight:600;font-size:18px;}
+    #clock{margin-top:6px;font-weight:600;font-size:18px;}
     #weather-icon{font-size:42px;}
+    .aq-good{color:#22c55e;font-weight:700;}
+    .aq-fair{color:#f59e0b;font-weight:700;}
+    .aq-moderate{color:#f97316;font-weight:700;}
+    .aq-poor{color:#ef4444;font-weight:700;}
+    .aq-verypoor{color:#9f1239;font-weight:700;}
+    .aq-extreme{color:#5b21b6;font-weight:700;}
   </style>
   <script>
+    // Coordinates for Przybiernów / ulica Golczewska (approximate)
+    const LAT = 53.759022106565155;
+    const LON = 14.790697711901318;
     function getWeatherIcon(code){
       const icons={
         0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',48:'🌫️',51:'🌦️',53:'🌦️',55:'🌦️',
@@ -39,34 +48,59 @@
         85:'🌨️',86:'🌨️',95:'⛈️',96:'⛈️',99:'⛈️'};
       return icons[code]||'🌡️';
     }
-    async function loadWeather(){
-      const lat = 53.759022106565155;
-      const lon = 14.790697711901318;
-      const apiUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=relativehumidity_2m,surface_pressure`;
+    function aqLabelAndClass(eaq){
+      // european_aqi ranges: 0-20 good,20-40 fair,40-60 moderate,60-80 poor,80-100 very poor,>100 extremely poor
+      if (eaq === null || eaq === undefined) return {label:'Brak danych', cls:''};
+      const v = Number(eaq);
+      if (v <= 20) return {label:'Bardzo dobra', cls:'aq-good'};
+      if (v <= 40) return {label:'Umiarkowana', cls:'aq-fair'};
+      if (v <= 60) return {label:'Średnia', cls:'aq-moderate'};
+      if (v <= 80) return {label:'Zła', cls:'aq-poor'};
+      if (v <= 100) return {label:'Bardzo zła', cls:'aq-verypoor'};
+      return {label:'Skrajnie zła', cls:'aq-extreme'};
+    }
+    async function loadWeatherAndAQ(){
+      // Weather (open-meteo)
+      const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current_weather=true&hourly=relativehumidity_2m,surface_pressure&timezone=Europe%2FWarsaw`;
+      // Air Quality (open-meteo air-quality endpoint)
+      const aqUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${LAT}&longitude=${LON}&current=pm2_5,pm10,european_aqi&hourly=pm2_5,pm10,european_aqi&timezone=Europe%2FWarsaw`;
       try{
-        const res = await fetch(apiUrl);
-        const data = await res.json();
-        const w = data.current_weather;
-        // find nearest hourly index for humidity and pressure - use index 0 as approximation
-        const humidity = data.hourly && data.hourly.relativehumidity_2m ? data.hourly.relativehumidity_2m[0] : '—';
-        const pressure = data.hourly && data.hourly.surface_pressure ? data.hourly.surface_pressure[0] : '—';
+        const [wRes,aqRes] = await Promise.all([fetch(weatherUrl), fetch(aqUrl)]);
+        const wData = await wRes.json();
+        const aqData = await aqRes.json();
+        // WEATHER
+        const w = wData.current_weather || {};
+        const humidity = (wData.hourly && wData.hourly.relativehumidity_2m && wData.hourly.relativehumidity_2m[0]!==undefined) ? wData.hourly.relativehumidity_2m[0] : '—';
+        const pressure = (wData.hourly && wData.hourly.surface_pressure && wData.hourly.surface_pressure[0]!==undefined) ? wData.hourly.surface_pressure[0] : '—';
         const icon = getWeatherIcon(w.weathercode);
+        // AIR QUALITY - current is in aqData.current
+        const currentAQ = aqData.current || {};
+        const pm25 = currentAQ.pm2_5 !== undefined ? currentAQ.pm2_5 : '—';
+        const pm10 = currentAQ.pm10 !== undefined ? currentAQ.pm10 : '—';
+        const eaq = currentAQ.european_aqi !== undefined ? currentAQ.european_aqi : null;
+        const eaqInfo = aqLabelAndClass(eaq);
         document.getElementById("weather").innerHTML = `
           <div id="weather-icon">${icon}</div>
-          <div><strong>${w.temperature}°C</strong> | Wiatr: ${w.windspeed} km/h</div>
+          <div><strong>${w.temperature !== undefined ? w.temperature + '°C' : '—'}</strong> | Wiatr: ${w.windspeed !== undefined ? w.windspeed + ' km/h' : '—'}</div>
           <div>Wilgotność: ${humidity}% | Ciśnienie: ${pressure} hPa</div>
-          <div class="muted">Aktualizacja: ${new Date(w.time).toLocaleString('pl-PL')}</div>
+          <div class="muted">Aktualizacja pogody: ${w.time ? new Date(w.time).toLocaleString('pl-PL') : '—'}</div>
+        `;
+        document.getElementById("aq").innerHTML = `
+          <div class="${eaqInfo.cls}" style="font-size:20px">${eaqInfo.label} (EAQI: ${eaq !== null ? eaq : '—'})</div>
+          <div>PM2.5: ${pm25} µg/m³ | PM10: ${pm10} µg/m³</div>
+          <div class="muted">Aktualizacja jakości powietrza: ${aqData.current && aqData.current.time ? new Date(aqData.current.time).toLocaleString('pl-PL') : '—'}</div>
         `;
       }catch(e){
         console.error(e);
         document.getElementById("weather").innerText = "Nie udało się załadować pogody.";
+        document.getElementById("aq").innerText = "Nie udało się załadować jakości powietrza.";
       }
     }
     function updateClock(){
       const now = new Date();
       document.getElementById("clock").textContent = now.toLocaleTimeString("pl-PL",{hour12:false});
     }
-    window.onload = ()=>{ loadWeather(); updateClock(); setInterval(updateClock,1000); setInterval(loadWeather,600000); };
+    window.onload = ()=>{ loadWeatherAndAQ(); updateClock(); setInterval(updateClock,1000); setInterval(loadWeatherAndAQ,600000); };
   </script>
 </head>
 <body>
@@ -90,6 +124,7 @@
         <a class="btn" href="#aktualnosci">Zobacz aktualności</a>
         <div id="weather-clock">
           <div id="weather">Ładowanie pogody...</div>
+          <div id="aq">Ładowanie jakości powietrza...</div>
           <div id="clock">--:--:--</div>
         </div>
       </div>
@@ -108,27 +143,27 @@
       <h2>Aktualności</h2>
       <div class="grid">
         <article class="card news-item">
-          <img alt="Przybiernów dożynki" src="https://images.unsplash.com/photo-1508672019048-805c876b67e2?auto=format&fit=crop&w=1200&q=60">
+          <img alt="Jarmark świąteczny" src="https://images.unsplash.com/photo-1544060745-3a8181b11a3f?auto=format&fit=crop&w=1200&q=60">
           <div>
-            <h3>Dożynki Gminne 2025 w Przybiernowie</h3>
-            <p class="muted">7 września 2025</p>
-            <p>Na stadionie gminnym odbyły się dożynki z udziałem mieszkańców całej gminy. Wystąpiły lokalne zespoły folklorystyczne, a mieszkańcy Golczewskiej przygotowali stoisko z wypiekami.</p>
+            <h3>Jarmark świąteczny na stadionie gminnym</h3>
+            <p class="muted">29 listopada 2025</p>
+            <p>Wspólne otwarcie sezonu świątecznego — stoiska lokalnych rękodzielników, ognisko i gorąca herbata. Zapraszamy mieszkańców Golczewskiej!</p>
           </div>
         </article>
         <article class="card news-item">
-          <img alt="Droga Golczewska remont" src="https://images.unsplash.com/photo-1581091012184-5c7a74c1e0c9?auto=format&fit=crop&w=1200&q=60">
+          <img alt="Chodnik oddany" src="https://images.unsplash.com/photo-1505842465776-3d1f3b2e7b8b?auto=format&fit=crop&w=1200&q=60">
+          <div>
+            <h3>Oddano do użytku nowy fragment chodnika</h3>
+            <p class="muted">15 listopada 2025</p>
+            <p>Na odcinku 400 m przy ul. Golczewskiej ukończono prace związane z budową chodnika i bezpiecznego przejścia dla pieszych.</p>
+          </div>
+        </article>
+        <article class="card news-item">
+          <img alt="Remont nawierzchni" src="https://images.unsplash.com/photo-1581091012184-5c7a74c1e0c9?auto=format&fit=crop&w=1200&q=60">
           <div>
             <h3>Remont nawierzchni — etap 2 zakończony</h3>
             <p class="muted">29 sierpnia 2025</p>
             <p>Zakończono drugi etap modernizacji drogi Golczewskiej. Wymieniono 1,4 km asfaltu i wprowadzono nowe oznakowanie poziome. Kolejny etap planowany jest na wiosnę 2026.</p>
-          </div>
-        </article>
-        <article class="card news-item">
-          <img alt="OSP Przybiernów" src="https://images.unsplash.com/photo-1594737625785-c9f5a9d42d1b?auto=format&fit=crop&w=1200&q=60">
-          <div>
-            <h3>OSP Przybiernów z nowym sprzętem ratowniczym</h3>
-            <p class="muted">15 czerwca 2025</p>
-            <p>Jednostka OSP Przybiernów otrzymała nowoczesne wyposażenie do działań ratowniczych. Nowe węże, pompy i aparaty ochrony dróg oddechowych trafiły również do sekcji obsługującej Golczewską.</p>
           </div>
         </article>
       </div>
